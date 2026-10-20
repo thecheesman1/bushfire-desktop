@@ -2,6 +2,7 @@
 const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 const { createProxy } = require('./proxy');
 
 // FIXED on purpose: localStorage (career token, settings, account login) is per origin,
@@ -13,6 +14,32 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist'); // school laptop iGPUs are
 app.commandLine.appendSwitch('force_high_performance_gpu'); // gaming laptops: the Nvidia/AMD chip, not the iGPU Chrome defaults to
 
 // a newer app build on GitHub? (the game itself self-updates through proxy.js, this is only for the shell)
+// Installed copy: electron-updater pulls it down in the background and swaps it in silently when you quit, so the
+// next launch is simply the new version. The portable exe can't patch itself, so it gets the "it's out" popup.
+const PORTABLE = !!process.env.PORTABLE_EXECUTABLE_DIR;
+function startUpdater(win, log) {
+  if (PORTABLE) { setTimeout(() => checkForUpdate(win), 5000); return; }
+  if (!app.isPackaged && !process.env.BF_UPDATE_URL) return; // dev runs don't update themselves
+  autoUpdater.logger = { info: (m) => log(`updater: ${m}`), warn: (m) => log(`updater warn: ${m}`), error: (m) => log(`updater error: ${m}`), debug: () => {} };
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  if (process.env.BF_UPDATE_URL) { // test feed: BF_UPDATE_URL=http://localhost:8099/ serving a latest.yml + the exe
+    autoUpdater.forceDevUpdateConfig = true;
+    autoUpdater.setFeedURL({ provider: 'generic', url: process.env.BF_UPDATE_URL });
+  }
+  autoUpdater.on('update-downloaded', (info) => {
+    log(`update ${info.version} downloaded`);
+    toast(win, `BUSHFIRE DESKTOP v${info.version} IS READY // IT INSTALLS ITSELF WHEN YOU CLOSE THE GAME`);
+  });
+  autoUpdater.on('error', (e) => log(`updater: ${e.message}`)); // offline / GitHub blocked: next launch
+  setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
+}
+// a little bar in the corner of the game, gone after 15 s
+function toast(win, text) {
+  win.webContents.executeJavaScript(`(() => { const d = document.createElement('div'); d.textContent = ${JSON.stringify(text)};
+    d.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;padding:10px 16px;background:#f2c14ee6;color:#14120c;font:13px "Share Tech Mono",monospace;letter-spacing:1px;pointer-events:none';
+    document.body.appendChild(d); setTimeout(() => d.remove(), 15000); })()`).catch(() => {});
+}
 async function checkForUpdate(win) {
   try {
     const r = await fetch('https://api.github.com/repos/thecheesman1/bushfire-desktop/releases/latest', { signal: AbortSignal.timeout(8000) });
@@ -60,12 +87,16 @@ if (!app.requestSingleInstanceLock()) {
     proxy.probe();
 
     Menu.setApplicationMenu(null);
+    const off = !!process.env.BF_OFFSCREEN; // tests: parked off-screen, never focused, no taskbar button
     win = new BrowserWindow({
       width: 1600, height: 900, show: false, title: 'BUSHFIRE', backgroundColor: '#14170f',
-      icon: path.join(__dirname, 'icon.png'),
+      icon: path.join(__dirname, 'icon.png'), skipTaskbar: off, focusable: !off,
       webPreferences: { backgroundThrottling: false },
     });
-    win.once('ready-to-show', () => { win.maximize(); win.show(); if (!process.env.BF_SHOT) setTimeout(() => checkForUpdate(win), 5000); });
+    win.once('ready-to-show', () => {
+      if (off) { win.setPosition(-4000, -4000); win.showInactive(); } else { win.maximize(); win.show(); }
+      if (!process.env.BF_SHOT || process.env.BF_UPDATE_URL) startUpdater(win, log);
+    });
     win.on('page-title-updated', (e) => e.preventDefault());
     // our own pages (editor, changelog) open in-app, everything else in the real browser
     win.webContents.setWindowOpenHandler(({ url }) => {

@@ -1,7 +1,7 @@
 {
   "name": "bushfire-desktop",
   "productName": "Bushfire",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "BUSHFIRE desktop app: the whole game bundled, online through ww3.bin-chicken.org or the direct route, solo when offline",
   "main": "main.js",
   "author": "ESADSA",
@@ -36,10 +36,20 @@
     },
     "portable": {
       "artifactName": "Bushfire-Portable.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "thecheesman1",
+        "repo": "bushfire-desktop"
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^44.9.1",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
