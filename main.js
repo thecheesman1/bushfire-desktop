@@ -67,7 +67,7 @@ if (!app.requestSingleInstanceLock()) {
       if (i.key === 'F11') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
       if (i.key === 'F12' || (i.control && i.shift && i.key === 'I')) { win.webContents.toggleDevTools(); e.preventDefault(); }
     });
-    win.loadURL(LOCAL);
+    win.loadURL(LOCAL + (process.env.BF_PATH || '')); // BF_PATH='?test=menu' for test runs
     // BF_SHOT=out.png: screenshot after a few seconds and quit (headless-ish smoke test)
     if (process.env.BF_SHOT) {
       if (process.env.BF_SHOT_JS) setTimeout(() => win.webContents.executeJavaScript(process.env.BF_SHOT_JS, true).catch((e) => log(`shot js: ${e.message}`)), 6000);
