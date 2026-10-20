@@ -10,6 +10,20 @@ const PORT = 47820;
 const LOCAL = `http://127.0.0.1:${PORT}/`;
 
 app.commandLine.appendSwitch('ignore-gpu-blocklist'); // school laptop iGPUs are often on Chrome's naughty list
+app.commandLine.appendSwitch('force_high_performance_gpu'); // gaming laptops: the Nvidia/AMD chip, not the iGPU Chrome defaults to
+
+// a newer app build on GitHub? (the game itself self-updates through proxy.js, this is only for the shell)
+async function checkForUpdate(win) {
+  try {
+    const r = await fetch('https://api.github.com/repos/thecheesman1/bushfire-desktop/releases/latest', { signal: AbortSignal.timeout(8000) });
+    const tag = (await r.json()).tag_name || '';
+    const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+    if (!newer(tag.replace(/^v/, ''), app.getVersion())) return;
+    const { response } = await dialog.showMessageBox(win, { type: 'info', title: 'BUSHFIRE', buttons: ['DOWNLOAD', 'LATER'], defaultId: 0,
+      message: `BUSHFIRE desktop ${tag} is out (you've got v${app.getVersion()}).`, detail: 'Grab the new installer, run it, done. Your career and settings stay.' });
+    if (response === 0) shell.openExternal('https://github.com/thecheesman1/bushfire-desktop/releases/latest');
+  } catch (e) { /* offline / GitHub blocked: whatever, next launch */ }
+}
 app.userAgentFallback = `${app.userAgentFallback} BushfireDesktop/${app.getVersion()}`; // hides the "download da app" bar
 
 if (!app.requestSingleInstanceLock()) {
@@ -51,7 +65,7 @@ if (!app.requestSingleInstanceLock()) {
       icon: path.join(__dirname, 'icon.png'),
       webPreferences: { backgroundThrottling: false },
     });
-    win.once('ready-to-show', () => { win.maximize(); win.show(); });
+    win.once('ready-to-show', () => { win.maximize(); win.show(); if (!process.env.BF_SHOT) setTimeout(() => checkForUpdate(win), 5000); });
     win.on('page-title-updated', (e) => e.preventDefault());
     // our own pages (editor, changelog) open in-app, everything else in the real browser
     win.webContents.setWindowOpenHandler(({ url }) => {

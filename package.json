@@ -1,7 +1,7 @@
 {
   "name": "bushfire-desktop",
   "productName": "Bushfire",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "BUSHFIRE desktop app: the whole game bundled, online through ww3.bin-chicken.org or the direct route, solo when offline",
   "main": "main.js",
   "author": "ESADSA",
