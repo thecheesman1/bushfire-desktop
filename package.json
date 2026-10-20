@@ -1,0 +1,45 @@
+{
+  "name": "bushfire-desktop",
+  "productName": "Bushfire",
+  "version": "1.0.0",
+  "description": "BUSHFIRE desktop app: the whole game bundled, online through ww3.bin-chicken.org or the direct route, solo when offline",
+  "main": "main.js",
+  "author": "ESADSA",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "seed": "node seed.js",
+    "dist": "node seed.js && electron-builder --win --publish never"
+  },
+  "build": {
+    "appId": "org.bin-chicken.bushfire",
+    "productName": "Bushfire",
+    "files": [
+      "main.js",
+      "proxy.js",
+      "direct-cert.pem",
+      "icon.png",
+      "seed/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Bushfire-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Bushfire-Portable.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.9.1",
+    "electron-builder": "^26.15.3"
+  }
+}
