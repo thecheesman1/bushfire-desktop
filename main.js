@@ -1,5 +1,5 @@
 // BUSHFIRE desktop: a window pointed at the local proxy (proxy.js), which does all the online/offline juggling.
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -12,6 +12,23 @@ const LOCAL = `http://127.0.0.1:${PORT}/`;
 
 app.commandLine.appendSwitch('ignore-gpu-blocklist'); // school laptop iGPUs are often on Chrome's naughty list
 app.commandLine.appendSwitch('force_high_performance_gpu'); // gaming laptops: the Nvidia/AMD chip, not the iGPU Chrome defaults to
+
+// FPS UNLOCKER (Settings, v1.40.1): no vsync, no 60/120/144 cap, the game draws as fast as the GPU goes. These are
+// launch switches, so the choice lives in userData/shell.json and flipping it relaunches the app (preload.js -> ipc)
+const SHELL_CFG = path.join(app.getPath('userData'), 'shell.json');
+const shellCfg = (() => { try { return JSON.parse(fs.readFileSync(SHELL_CFG, 'utf8')); } catch (e) { return {}; } })();
+if (shellCfg.fpsUnlock) {
+  app.commandLine.appendSwitch('disable-frame-rate-limit');
+  app.commandLine.appendSwitch('disable-gpu-vsync');
+}
+ipcMain.handle('fps-unlock:get', () => !!shellCfg.fpsUnlock);
+ipcMain.handle('fps-unlock:set', (e, on) => {
+  if (!!shellCfg.fpsUnlock === on) return false;
+  shellCfg.fpsUnlock = on;
+  try { fs.writeFileSync(SHELL_CFG, JSON.stringify(shellCfg)); } catch (err) { return false; }
+  setTimeout(() => { app.relaunch(); app.exit(0); }, 400); // the page saved its run on the way out (it's a reload as far as it knows)
+  return true;
+});
 
 // a newer app build on GitHub? (the game itself self-updates through proxy.js, this is only for the shell)
 // Installed copy: electron-updater pulls it down in the background and swaps it in silently when you quit, so the
@@ -91,8 +108,9 @@ if (!app.requestSingleInstanceLock()) {
     win = new BrowserWindow({
       width: 1600, height: 900, show: false, title: 'BUSHFIRE', backgroundColor: '#14170f',
       icon: path.join(__dirname, 'icon.png'), skipTaskbar: off, focusable: !off,
-      webPreferences: { backgroundThrottling: false },
+      webPreferences: { backgroundThrottling: false, preload: path.join(__dirname, 'preload.js') },
     });
+    if (off) win.webContents.setAudioMuted(true); // test runs never make noise on the user's machine
     win.once('ready-to-show', () => {
       if (off) { win.setPosition(-4000, -4000); win.showInactive(); } else { win.maximize(); win.show(); }
       if (!process.env.BF_SHOT || process.env.BF_UPDATE_URL) startUpdater(win, log);
