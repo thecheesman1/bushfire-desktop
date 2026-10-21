@@ -129,6 +129,10 @@ if (!app.requestSingleInstanceLock()) {
       if (i.type !== 'keyDown') return;
       if (i.key === 'F11') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
       if (i.key === 'F12' || (i.control && i.shift && i.key === 'I')) { win.webContents.toggleDevTools(); e.preventDefault(); }
+      // UI SCALE (v1.0.4): Ctrl + / - / 0 nudge the game's own HUD + menu scale, not Chromium's page zoom (that'd
+      // change devicePixelRatio and the 3D render's resolution with it)
+      const d = i.control && !i.shift ? { '=': 0.1, '+': 0.1, '-': -0.1, '_': -0.1, '0': 0 }[i.key] : undefined;
+      if (d !== undefined) { win.webContents.executeJavaScript(`window.__uiScale && window.__uiScale(${d})`).catch(() => {}); e.preventDefault(); }
     });
     win.loadURL(LOCAL + (process.env.BF_PATH || '')); // BF_PATH='?test=menu' for test runs
     // BF_SHOT=out.png: screenshot after a few seconds and quit (headless-ish smoke test)
